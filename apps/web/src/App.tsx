@@ -15,6 +15,12 @@ type TrackingRecord = TrackingSnapshot & {
   updatedAt: number;
 };
 
+type TaskRow = {
+  task: string;
+  elapsedMilliseconds: number;
+  isActive: boolean;
+};
+
 const STORAGE_KEY = "codename-two:web:active-time-tracking:v1";
 
 function isValidTaskNumber(value: string) {
@@ -98,11 +104,7 @@ function parseTrackingRecord(rawValue: string) {
   } satisfies TrackingSnapshot;
 }
 
-function getElapsedForTask(
-  snapshot: TrackingSnapshot,
-  task: string,
-  now: number,
-) {
+function getElapsedForTask(snapshot: TrackingSnapshot, task: string, now: number) {
   const savedElapsed = snapshot.elapsedByTask[task] ?? 0;
 
   if (snapshot.activeTask === task && snapshot.sessionStartedAt !== null) {
@@ -128,6 +130,26 @@ function createCheckpoint(snapshot: TrackingSnapshot, now: number) {
     sessionStartedAt: now,
     elapsedByTask: nextElapsedByTask,
   } satisfies TrackingSnapshot;
+}
+
+function getTrackedTaskRows(snapshot: TrackingSnapshot, now: number) {
+  const taskNumbers = new Set(Object.keys(snapshot.elapsedByTask));
+
+  if (snapshot.activeTask) {
+    taskNumbers.add(snapshot.activeTask);
+  }
+
+  return [...taskNumbers]
+    .sort((left, right) => left.localeCompare(right, undefined, { numeric: true, sensitivity: "base" }))
+    .map((task) => {
+      const isActive = snapshot.activeTask === task && snapshot.sessionStartedAt !== null;
+
+      return {
+        task,
+        isActive,
+        elapsedMilliseconds: isActive ? getElapsedForTask(snapshot, task, now) : snapshot.elapsedByTask[task] ?? 0,
+      } satisfies TaskRow;
+    });
 }
 
 export default function App() {
@@ -161,6 +183,17 @@ export default function App() {
       setPersistenceError("Local persistence is unavailable. Tracking cannot be restored or saved.");
     }
   }, []);
+
+  const taskRows = useMemo(() => {
+    return getTrackedTaskRows(
+      {
+        activeTask,
+        sessionStartedAt,
+        elapsedByTask,
+      },
+      now,
+    );
+  }, [activeTask, sessionStartedAt, elapsedByTask, now]);
 
   const activeElapsedMilliseconds = useMemo(() => {
     if (!activeTask) {
@@ -243,14 +276,7 @@ export default function App() {
     }
   }
 
-  function handleStart() {
-    const normalizedTask = task.trim();
-
-    if (!isValidTaskNumber(normalizedTask)) {
-      setValidationError("Enter valid task number before starting.");
-      return;
-    }
-
+  function startTask(nextTask: string) {
     const timestamp = Date.now();
     const checkpoint = createCheckpoint(
       {
@@ -262,21 +288,36 @@ export default function App() {
     );
 
     const nextSnapshot: TrackingSnapshot = {
-      activeTask: normalizedTask,
+      activeTask: nextTask,
       sessionStartedAt: timestamp,
       elapsedByTask: {
         ...checkpoint.elapsedByTask,
-        [normalizedTask]: checkpoint.elapsedByTask[normalizedTask] ?? 0,
+        [nextTask]: checkpoint.elapsedByTask[nextTask] ?? 0,
       },
     };
 
-    setTask(normalizedTask);
+    setTask(nextTask);
     setValidationError("");
     setActiveTask(nextSnapshot.activeTask);
     setSessionStartedAt(nextSnapshot.sessionStartedAt);
     setElapsedByTask(nextSnapshot.elapsedByTask);
     setNow(timestamp);
     persistSnapshot(nextSnapshot);
+  }
+
+  function handleStart() {
+    const normalizedTask = task.trim();
+
+    if (!isValidTaskNumber(normalizedTask)) {
+      setValidationError("Enter valid task number before starting.");
+      return;
+    }
+
+    startTask(normalizedTask);
+  }
+
+  function handleRowStart(nextTask: string) {
+    startTask(nextTask);
   }
 
   function handleStop() {
@@ -372,6 +413,66 @@ export default function App() {
             </div>
           </div>
         </div>
+
+        <section className="rounded-[1rem] border border-border bg-secondary/20 p-5 shadow-sm">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                Tracked tasks
+              </p>
+              <h2 className="text-lg font-semibold tracking-tight">Local task list</h2>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {taskRows.length === 1 ? "1 task" : `${taskRows.length} tasks`}
+            </p>
+          </div>
+
+          {taskRows.length > 0 ? (
+            <div className="mt-4 divide-y divide-border rounded-xl border border-border bg-background">
+              {taskRows.map((row) => (
+                <div key={row.task} className="flex items-center justify-between gap-4 px-4 py-4">
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-sm font-medium text-foreground">Task {row.task}</p>
+                      {row.isActive ? (
+                        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.16em] text-emerald-700">
+                          Active
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="font-mono text-2xl font-semibold tracking-tight">
+                      {formatElapsedTime(row.elapsedMilliseconds)}
+                    </p>
+                  </div>
+                  {row.isActive ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      className="shrink-0 px-4"
+                      onClick={handleStop}
+                    >
+                      Stop
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="shrink-0 px-4"
+                      onClick={() => handleRowStart(row.task)}
+                    >
+                      Start
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-4 rounded-xl border border-dashed border-border bg-background px-4 py-8 text-center text-sm text-muted-foreground">
+              No tracked tasks yet. Start one to show it here.
+            </div>
+          )}
+        </section>
 
         <footer className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">
