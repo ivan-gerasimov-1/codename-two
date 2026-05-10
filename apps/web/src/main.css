@@ -1,25 +1,28 @@
+@import "@fontsource-variable/geist-mono";
+@import "@fontsource-variable/noto-serif";
 @import "tailwindcss";
 
 :root {
-  --background: oklch(0.99 0 0);
-  --foreground: oklch(0.19 0.01 258.34);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.19 0.01 258.34);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.19 0.01 258.34);
-  --primary: oklch(0.58 0.17 251.62);
-  --primary-foreground: oklch(0.98 0.01 255.51);
-  --secondary: oklch(0.96 0.01 247.86);
-  --secondary-foreground: oklch(0.28 0.03 256.85);
-  --muted: oklch(0.97 0.01 247.9);
-  --muted-foreground: oklch(0.55 0.03 257.42);
-  --accent: oklch(0.92 0.05 218.01);
-  --accent-foreground: oklch(0.3 0.06 255.29);
-  --destructive: oklch(0.63 0.24 25.33);
+  color-scheme: dark;
+  --background: oklch(0.13 0.02 255);
+  --foreground: oklch(0.97 0.01 254);
+  --card: oklch(0.18 0.02 255);
+  --card-foreground: oklch(0.97 0.01 254);
+  --popover: oklch(0.18 0.02 255);
+  --popover-foreground: oklch(0.97 0.01 254);
+  --primary: oklch(0.82 0.13 82);
+  --primary-foreground: oklch(0.16 0.02 255);
+  --secondary: oklch(0.23 0.02 255);
+  --secondary-foreground: oklch(0.96 0.01 254);
+  --muted: oklch(0.22 0.02 255);
+  --muted-foreground: oklch(0.73 0.02 254);
+  --accent: oklch(0.26 0.03 219);
+  --accent-foreground: oklch(0.97 0.01 254);
+  --destructive: oklch(0.68 0.19 25.33);
   --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.92 0.01 255.51);
-  --input: oklch(0.92 0.01 255.51);
-  --ring: oklch(0.58 0.17 251.62);
+  --border: oklch(0.3 0.02 255);
+  --input: oklch(0.3 0.02 255);
+  --ring: oklch(0.82 0.13 82);
   --radius: 1rem;
 }
 
@@ -54,11 +57,45 @@
     @apply border-border;
   }
 
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
+    font-family: "Noto Serif Variable", Georgia, serif;
+    background-image:
+      radial-gradient(circle at top left, rgba(245, 190, 68, 0.16), transparent 30%),
+      radial-gradient(circle at 85% 12%, rgba(84, 155, 255, 0.15), transparent 28%),
+      linear-gradient(180deg, rgba(7, 10, 16, 1) 0%, rgba(10, 14, 22, 1) 100%);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    background: rgba(245, 190, 68, 0.32);
+    color: oklch(0.99 0 0);
   }
 
   #root {
     min-height: 100vh;
+  }
+}
+
+.font-display {
+  font-family: "Noto Serif Variable", Georgia, serif;
+}
+
+.font-mono-ui {
+  font-family: "Geist Mono Variable", "SFMono-Regular", ui-monospace, monospace;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
