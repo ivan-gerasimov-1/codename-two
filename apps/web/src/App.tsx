@@ -227,11 +227,6 @@ export default function App() {
 
   function persistSnapshot(snapshot: TrackingSnapshot) {
     try {
-      if (!snapshot.activeTask) {
-        window.localStorage.removeItem(STORAGE_KEY);
-        return;
-      }
-
       window.localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({
@@ -241,8 +236,10 @@ export default function App() {
         } satisfies TrackingRecord),
       );
       setPersistenceError("");
+      return true;
     } catch {
-      setPersistenceError("Local persistence failed. Tracking is still active, but saved state may be stale.");
+      setPersistenceError("Local persistence failed. Tracking state was not saved.");
+      return false;
     }
   }
 
@@ -282,8 +279,40 @@ export default function App() {
     persistSnapshot(nextSnapshot);
   }
 
+  function handleStop() {
+    if (!activeTask || sessionStartedAt === null) {
+      return;
+    }
+
+    const timestamp = Date.now();
+    const checkpoint = createCheckpoint(
+      {
+        activeTask,
+        sessionStartedAt,
+        elapsedByTask,
+      },
+      timestamp,
+    );
+    const nextSnapshot: TrackingSnapshot = {
+      activeTask: null,
+      sessionStartedAt: null,
+      elapsedByTask: checkpoint.elapsedByTask,
+    };
+
+    if (!persistSnapshot(nextSnapshot)) {
+      return;
+    }
+
+    setValidationError("");
+    setActiveTask(null);
+    setSessionStartedAt(null);
+    setElapsedByTask(nextSnapshot.elapsedByTask);
+    setNow(timestamp);
+  }
+
   const activeTaskElapsed = formatElapsedTime(activeElapsedMilliseconds);
   const activeTaskLabel = activeTask ?? "No active task";
+  const hasActiveSession = Boolean(activeTask && sessionStartedAt !== null);
 
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,oklch(0.98_0.01_254)_0%,oklch(0.99_0.005_254)_42%,oklch(0.95_0.01_254)_100%)] px-6 py-8 text-foreground">
@@ -346,11 +375,20 @@ export default function App() {
 
         <footer className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">
-            Local-only tracking. Saves checkpoint every minute.
+            {hasActiveSession
+              ? "Local-only tracking. Stop saves elapsed time immediately."
+              : "Local-only tracking stopped. Start resumes from saved local time."}
           </p>
-          <Button type="button" size="lg" className="min-w-28 px-6" onClick={handleStart}>
-            Start
-          </Button>
+          <div className="flex gap-2">
+            {hasActiveSession ? (
+              <Button type="button" size="lg" variant="secondary" className="min-w-28 px-6" onClick={handleStop}>
+                Stop
+              </Button>
+            ) : null}
+            <Button type="button" size="lg" className="min-w-28 px-6" onClick={handleStart}>
+              Start
+            </Button>
+          </div>
         </footer>
 
         {persistenceError ? (
